@@ -121,7 +121,16 @@ class MainWindow(QMainWindow):
             'Dashboard': ['Overview', 'Markets', 'Positions', 'P&L', 'News', 'Alerts'],
             'Scanning': ['Stock Scanner', 'Options Scanner', 'Filters', 'Results', 'Saved Scans', 'Export'],
             'Watchlist': ['Active List', 'Create List', 'Price Alerts', 'Volume Alerts', 'Technical Alerts', 'History'],
-            'Options Trading': ['Strategy Builder', 'Active Trades', 'Strategy 1-4', 'Backtest', 'Settings'],
+            'Options Trading': [
+                'Strategy Builder',
+                'Active Trades',
+                'WHEEL',
+                'STRADDLE',
+                'COVERED CALL',
+                'IRON CONDOR',
+                'Backtest',
+                'Settings'
+            ],
             'Analytics': ['Performance', 'Reports', 'Trade History', 'Risk Analysis', 'Charts', 'Export'],
             'Settings': ['Account', 'Data Sources', 'API Keys', 'Notifications', 'Import/Export', 'About']
         }

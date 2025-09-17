@@ -98,8 +98,8 @@ class IBKRStatusWidget(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._connected = True      # מהארטיפקט המקורי
-        self._account_type = 'paper'  # מהארטיפקט המקורי
+        self._connected = False      # כברירת מחדל לא מחובר
+        self._account_type = ''      # אין סוג חשבון עד התחברות
         self.setup_ui()
         self.update_display()
         
@@ -192,17 +192,20 @@ class IBKRStatusWidget(QWidget):
         """עדכון התצוגה לפי המצב"""
         # עדכון אייקון Wifi
         self.wifi_icon.set_connected(self._connected)
-        
+
         # עדכון נקודת סטטוס וצבע טקסט
-        if self._account_type == 'paper':
-            self.status_dot.set_color('blue')
-            text_color = '#2563eb'  # text-blue-600
-        else:  # live
-            self.status_dot.set_color('orange')
-            text_color = '#ea580c'  # text-orange-600
-            
-        # עדכון טקסט החשבון
-        self.account_label.setText(self._account_type.upper())
+        if not self._connected:
+            self.status_dot.set_color('gray')
+            text_color = '#6b7280'  # אפור
+            self.account_label.setText("")
+        else:
+            if self._account_type == 'paper':
+                self.status_dot.set_color('blue')
+                text_color = '#2563eb'  # כחול
+            else:
+                self.status_dot.set_color('orange')
+                text_color = '#ea580c'  # כתום
+            self.account_label.setText(self._account_type.upper())
         self.account_label.setStyleSheet(f"color: {text_color};")
         
     def toggle_connection(self):
@@ -215,12 +218,38 @@ class IBKRStatusWidget(QWidget):
         self.set_account_type(new_type)
         
     def mousePressEvent(self, event):
-        """לחיצה על הרכיב - החלפת מצב (לבדיקות)"""
+        """לחיצה על הרכיב - פתיחת דיאלוג התחברות ל-IBKR"""
         if event.button() == Qt.MouseButton.LeftButton:
-            # לחיצה שמאלית - החלפת חיבור
-            self.toggle_connection()
+            try:
+                from ui.dialogs.ibkr_login_dialog import IBKRLoginDialog
+                from brokers.interactive_brokers import IBKRConnector
+                dlg = IBKRLoginDialog(self)
+                if dlg.exec():
+                    creds = dlg.get_credentials()
+                    # יצירת מחבר (אפשר לשמור אותו ברמת אפליקציה בהמשך)
+                    if not hasattr(self, '_ibkr_connector'):
+                        self._ibkr_connector = IBKRConnector()
+                    connector = self._ibkr_connector
+                    # ניסיון התחברות
+                    connected = connector.connect(
+                        host='127.0.0.1',
+                        port=creds['port'] or 7497,
+                        account=creds['account'],
+                        password=creds['password']
+                    )
+                    self.set_connection_status(connected)
+                    # קביעת סוג חשבון לפי account
+                    if connected:
+                        acc_type = 'live' if creds['account'].startswith('U') else 'paper'
+                        self.set_account_type(acc_type)
+                    else:
+                        from PyQt6.QtWidgets import QMessageBox
+                        err = connector.get_status().get('error', 'Unknown error')
+                        QMessageBox.critical(self, "IBKR Connection Failed", f"Failed to connect to IBKR:\n{err}")
+            except Exception as e:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.critical(self, "IBKR Dialog Error", f"Failed to open IBKR login dialog:\n{e}")
         elif event.button() == Qt.MouseButton.RightButton:
-            # לחיצה ימנית - החלפת סוג חשבון
             self.toggle_account_type()
         super().mousePressEvent(event)
 
