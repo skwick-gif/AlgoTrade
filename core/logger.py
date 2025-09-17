@@ -267,10 +267,12 @@ def critical(message: str, logger_name: str = None):
     get_logger(logger_name).critical(message)
 
 
+logger = get_logger()
 # Export
 __all__ = [
     'setup_logging',
     'get_logger',
+    'logger',
     'log_trade',
     'log_data_usage', 
     'log_error',

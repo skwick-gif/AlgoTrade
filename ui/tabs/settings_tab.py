@@ -6,7 +6,23 @@ class Tab(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         layout = QtWidgets.QHBoxLayout(self)
-        layout.addWidget(make_sidebar(['Account', 'Data Sources', 'API Keys', 'Notifications', 'Import/Export', 'About']))
-        content = QtWidgets.QLabel("Content for Settings Tab.Py")
-        content.setStyleSheet("color:#6b7280")
-        layout.addWidget(content, 1)
+        sidebar_items = ['Account', 'Data Sources', 'API Keys', 'Notifications', 'Import/Export', 'About']
+        self.sidebar_buttons = []
+        sidebar_widget = QtWidgets.QWidget()
+        sidebar_layout = QtWidgets.QVBoxLayout(sidebar_widget)
+        for btn_name in sidebar_items:
+            btn = QtWidgets.QPushButton(btn_name)
+            btn.setCheckable(True)
+            btn.clicked.connect(lambda checked, name=btn_name, btn_ref=btn: self.on_sidebar_btn_clicked(name, btn_ref))
+            sidebar_layout.addWidget(btn)
+            self.sidebar_buttons.append(btn)
+        layout.addWidget(sidebar_widget)
+        self.content_label = QtWidgets.QLabel("Content for Settings Tab.Py")
+        self.content_label.setStyleSheet("color:#6b7280")
+        layout.addWidget(self.content_label, 1)
+
+    def on_sidebar_btn_clicked(self, name, btn_ref):
+        for btn in self.sidebar_buttons:
+            btn.setChecked(False)
+        btn_ref.setChecked(True)
+        self.content_label.setText(f"Content for {name} will be displayed here")

@@ -20,17 +20,32 @@ from ui.components.ibkr_status import IBKRStatusWidget
 
 class SidebarWidget(QWidget):
     def update_buttons(self, buttons):
+        print(f"DEBUG: update_buttons called with: {buttons}")
         # ניקוי כפתורים קיימים
+        self.sidebar_buttons = []
         for i in reversed(range(self.buttons_layout.count())):
             widget = self.buttons_layout.itemAt(i).widget()
             if widget:
                 widget.setParent(None)
         # יצירת כפתורים חדשים
+        import functools
         for btn_name in buttons:
             btn = QPushButton(btn_name)
             btn.setCheckable(True)
-            btn.clicked.connect(lambda checked, name=btn_name: self.button_clicked.emit(name))
+            btn.clicked.connect(functools.partial(self.on_sidebar_btn_clicked, btn_name, btn))
+            print(f"DEBUG: created button {btn_name} and connected clicked")
             self.buttons_layout.addWidget(btn)
+            self.sidebar_buttons.append(btn)
+
+    def on_sidebar_btn_clicked(self, name, btn_ref):
+        print(f"DEBUG: SidebarWidget button clicked: {name}")
+        # נטרול checked מכל הכפתורים
+        for btn in getattr(self, 'sidebar_buttons', []):
+            btn.setChecked(False)
+        # סימון הכפתור הנבחר
+        btn_ref.setChecked(True)
+        print(f"DEBUG: emitting button_clicked signal with {name}")
+        self.button_clicked.emit(name)
     """Sidebar עם כפתורים דינמיים לכל לשונית"""
     button_clicked = pyqtSignal(str)  # שם הכפתור שנלחץ
 
@@ -54,11 +69,12 @@ class ContentWidget(QWidget):
     """אזור התוכן הראשי"""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setup_ui()
-
-    def setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
+        self.top_label = QLabel("טקסט לדוגמה בחלק העליון של העמוד")
+        self.top_label.setObjectName("topLabel")
+        self.top_label.setStyleSheet("font-size: 16px; color: #1976d2; font-weight: bold;")
+        layout.addWidget(self.top_label)
         self.title_label = QLabel("Dashboard Content")
         self.title_label.setObjectName("contentTitle")
         layout.addWidget(self.title_label)
@@ -70,29 +86,11 @@ class ContentWidget(QWidget):
     def update_content(self, tab_name, sidebar_button=None):
         if sidebar_button:
             self.title_label.setText(f"{tab_name} - {sidebar_button}")
-            self.content_label.setText(f"Content for {sidebar_button} will be displayed here")
+            # טקסט לדוגמה לכל כפתור בסיידבר
+            self.content_label.setText(f"בדיקת תוכן: {tab_name} / {sidebar_button}")
         else:
             self.title_label.setText(f"{tab_name} Content")
             self.content_label.setText(f"Content for {tab_name} will be displayed here")
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setup_ui()
-        
-    def setup_ui(self):
-        """הגדרת הממשק"""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
-        
-        # כותרת
-        self.title_label = QLabel("Dashboard Content")
-        self.title_label.setObjectName("contentTitle")
-        layout.addWidget(self.title_label)
-        
-        # תוכן ריק (זמני)
-        self.content_label = QLabel("Content for Dashboard will be displayed here")
-        self.content_label.setObjectName("contentPlaceholder")
-        self.content_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.content_label, 1)
         
     def update_content(self, tab_name, sidebar_button=None):
         """עדכון התוכן לפי לשונית וכפתור sidebar נבחרים"""
@@ -164,8 +162,8 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.tab_widget)
 
         # אזור תוכן עם sidebar
-        content_splitter = self.create_content_area()
-        main_layout.addWidget(content_splitter, 1)
+        self.content_splitter = self.create_content_area()
+        main_layout.addWidget(self.content_splitter, 1)
 
     def create_header(self):
         """יצירת ה-Header עם כל הרכיבים"""
@@ -236,13 +234,25 @@ class MainWindow(QMainWindow):
         """יצירת אזור התוכן עם sidebar"""
         splitter = QSplitter(Qt.Orientation.Horizontal)
         
-        # Sidebar
-        self.sidebar = SidebarWidget()
+        # Sidebar - מופע יחיד
+        if not hasattr(self, 'sidebar_instance'):
+            self.sidebar_instance = SidebarWidget()
+        self.sidebar = self.sidebar_instance
         self.sidebar.setObjectName("sidebar")
         splitter.addWidget(self.sidebar)
         
         # Content area
-        self.content_widget = ContentWidget()
+        from ui.tabs.options_trading_tab import Tab as OptionsTradingTab
+        from ui.components.generic_tab import GenericTab
+        self.options_trading_tab_instance = OptionsTradingTab()
+        self.content_widgets = {}
+        for tab_name in self.tabs:
+            if tab_name == 'Options Trading':
+                self.content_widgets[tab_name] = self.options_trading_tab_instance
+            else:
+                sidebar_buttons = self.sidebar_content.get(tab_name, [])
+                self.content_widgets[tab_name] = GenericTab(tab_name, sidebar_buttons)
+        self.content_widget = self.content_widgets[self.tabs[self.current_tab_index]]
         self.content_widget.setObjectName("contentArea")
         splitter.addWidget(self.content_widget)
         
@@ -283,7 +293,26 @@ class MainWindow(QMainWindow):
             
         self.current_tab_index = index
         self.update_sidebar_content()
-        self.update_content()
+        # החלפת content_widget בתוכן המתאים
+        from ui.tabs.options_trading_tab import Tab as OptionsTradingTab
+        # הסרת ה-widget הישן
+        old_widget = self.content_splitter.widget(1)
+        self.content_splitter.widget(1).hide()
+        self.content_splitter.widget(1).setParent(None)
+        # יצירת widget חדש
+        new_widget = self.content_widgets[self.tabs[self.current_tab_index]]
+        new_widget.setObjectName("contentArea")
+        self.content_splitter.insertWidget(1, new_widget)
+        new_widget.show()
+        self.content_widget = new_widget  # עדכון מצביע ל-widget הפעיל
+        # הצגת תוכן ברירת מחדל בכל לשונית
+        sidebar_buttons = self.sidebar_content.get(self.tabs[self.current_tab_index], [])
+        if sidebar_buttons:
+            # עדכון ישיר של ה-widget הפעיל
+            if hasattr(new_widget, 'set_content_by_name'):
+                new_widget.set_content_by_name(sidebar_buttons[0])
+            elif hasattr(new_widget, 'update_content'):
+                new_widget.update_content(self.tabs[self.current_tab_index], sidebar_buttons[0])
         
     def update_sidebar_content(self):
         """עדכון תוכן ה-sidebar לפי לשונית נבחרת"""
@@ -297,9 +326,18 @@ class MainWindow(QMainWindow):
         self.content_widget.update_content(current_tab_name)
         
     def on_sidebar_button_clicked(self, button_name):
-        """טיפול בלחיצה על כפתור sidebar"""
+        """טיפול בלחיצה על כפתור sidebar בכל לשונית"""
+        print(f"DEBUG: sidebar button clicked: {button_name}")
         current_tab_name = self.tabs[self.current_tab_index]
-        self.content_widget.update_content(current_tab_name, button_name)
+        # איתור ה-widget הפעיל ב-content_splitter
+        content_widget = self.content_splitter.widget(1)
+        print(f"DEBUG: current_tab_name={current_tab_name}, content_widget={type(content_widget)}")
+        if hasattr(content_widget, 'set_content_by_name'):
+            print(f"DEBUG: calling set_content_by_name({button_name})")
+            content_widget.set_content_by_name(button_name)
+        elif hasattr(content_widget, 'update_content'):
+            print(f"DEBUG: calling update_content({current_tab_name}, {button_name})")
+            content_widget.update_content(current_tab_name, button_name)
         
     def update_vix_data(self):
         """עדכון נתוני VIX אמיתיים"""
