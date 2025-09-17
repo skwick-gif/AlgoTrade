@@ -1,6 +1,168 @@
 from PyQt6 import QtWidgets, QtCore
 
 class DataManagementTab(QtWidgets.QWidget):
+    def download_year(self):
+        import threading, time
+        def run_download():
+            from data_management.data_router import DataRouter
+            from data_management.stock_db import StockDB
+            import pandas as pd
+            import logging
+            logger = logging.getLogger("download_year")
+            self.status_label.setText("מוריד נתונים לשנה אחורה... (פעולה עשויה להימשך מספר שניות)")
+            QtWidgets.QApplication.processEvents()
+            router = DataRouter()
+            db = StockDB()
+            symbols = self.symbols_input.text().strip()
+            if not symbols:
+                symbols = "AAPL"
+            symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+            logger.info(f"[download_year] סימבולים: {symbol_list}")
+            end_date = pd.Timestamp.today().date()
+            start_date = end_date - pd.Timedelta(days=365)
+            results = []
+            provider_order = ["yahoo", "finnhub", "alphavantage", "polygon", "twelvedata", "fmp"]
+            logger.info(f"[download_year] ספקים: {provider_order}")
+            for symbol in symbol_list:
+                got_data = False
+                for provider_name in provider_order:
+                    max_attempts = 3
+                    attempt = 0
+                    while attempt < max_attempts:
+                        attempt += 1
+                        logger.info(f"[download_year] מנסה {symbol} דרך {provider_name} (נסיון {attempt})")
+                        self.status_label.setText(f"מנסה להוריד {symbol} דרך {provider_name} (נסיון {attempt})...")
+                        QtWidgets.QApplication.processEvents()
+                        try:
+                            # עבור Yahoo נשתמש ב-period='1y' במקום start/end
+                            if provider_name == "yahoo":
+                                if hasattr(router, 'get_historical_data'):
+                                    data = router._providers["yahoo"].get_historical_data(symbol, None, None, period="1y")
+                                else:
+                                    data = router.get_quote(symbol, provider=provider_name)
+                            elif hasattr(router, 'get_historical_data'):
+                                data = router.get_historical_data(symbol, str(start_date), str(end_date), provider=provider_name)
+                            else:
+                                data = router.get_quote(symbol, provider=provider_name)
+                        except Exception as e:
+                            err_str = str(e)
+                            logger.error(f"[download_year] שגיאה ({provider_name}) עבור {symbol}: {e}")
+                            self.status_label.setText(f"שגיאה ({provider_name}) עבור {symbol}: {e}")
+                            QtWidgets.QApplication.processEvents()
+                            # טיפול בשגיאת 429
+                            if "429" in err_str or "Too Many Requests" in err_str:
+                                self.status_label.setText(f"ספק {provider_name} חסום זמנית (429). ממתין 10 שניות...")
+                                QtWidgets.QApplication.processEvents()
+                                time.sleep(10)
+                                continue
+                            else:
+                                break
+                        if isinstance(data, pd.DataFrame):
+                            logger.info(f"[download_year] התקבל DataFrame עבור {symbol} ({provider_name}), שורות: {len(data)})")
+                            if data.empty:
+                                logger.warning(f"[download_year] אין נתונים זמינים עבור {symbol} ({provider_name})")
+                                self.status_label.setText(f"אין נתונים זמינים עבור {symbol} ({provider_name})")
+                                QtWidgets.QApplication.processEvents()
+                                break
+                            rows = data.to_dict('records')
+                        else:
+                            rows = []
+                            if isinstance(data, list):
+                                for item in data:
+                                    if hasattr(item, 'to_dict'):
+                                        rows.append(item.to_dict())
+                                    elif isinstance(item, dict):
+                                        rows.append(item)
+                            elif hasattr(data, 'to_dict'):
+                                rows.append(data.to_dict())
+                            elif isinstance(data, dict):
+                                rows.append(data)
+                        logger.info(f"[download_year] rows: {len(rows)}")
+                        if not rows:
+                            logger.warning(f"[download_year] לא התקבלו נתונים עבור {symbol} ({provider_name})")
+                            self.status_label.setText(f"לא התקבלו נתונים עבור {symbol} ({provider_name})")
+                            QtWidgets.QApplication.processEvents()
+                            break
+                        db.insert_rows(rows, provider=provider_name)
+                        results.append(symbol)
+                        got_data = True
+                        logger.info(f"[download_year] הצלחה עבור {symbol} דרך {provider_name}")
+                        break
+                    if got_data:
+                        break
+                if not got_data:
+                    logger.warning(f"[download_year] לא נמצאו נתונים עבור {symbol} בכל הספקים")
+                    self.status_label.setText(f"לא נמצאו נתונים עבור {symbol} בכל הספקים")
+                    QtWidgets.QApplication.processEvents()
+            db.close()
+            logger.info(f"[download_year] סיום, results: {results}")
+            if results:
+                self.status_label.setText(f"הורדה הושלמה ושמורה ל-SQLite עבור: {', '.join(results)}")
+            else:
+                self.status_label.setText("שגיאה בהורדת נתונים לשנה אחורה")
+            QtWidgets.QApplication.processEvents()
+        threading.Thread(target=run_download, daemon=True).start()
+    def download_range(self):
+        import re, json, os
+        start_date = self.date_from.text().strip()
+        end_date = self.date_to.text().strip()
+        pattern = r"^(\d{2}-\d{2}-\d{4})$"
+        if not re.match(pattern, start_date) or not re.match(pattern, end_date):
+            self.status_label.setText("פורמט תאריך לא תקין. יש להזין: dd-mm-yyyy")
+            return
+        symbols = self.symbols_input.text().strip()
+        if not symbols:
+            symbols = "AAPL"
+        symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+        self.status_label.setText(f"מוריד נתונים מ-{start_date} עד {end_date} עבור {', '.join(symbol_list)}...")
+        from data_management.data_router import DataRouter
+        import pandas as pd
+        router = DataRouter()
+        provider_order = ["yahoo", "finnhub", "alphavantage", "polygon", "twelvedata", "fmp"]
+        results = []
+        for symbol in symbol_list:
+            got_data = False
+            for provider_name in provider_order:
+                try:
+                    if hasattr(router, 'get_historical_data'):
+                        data = router.get_historical_data(symbol, start_date, end_date, provider=provider_name)
+                    else:
+                        data = router.get_quote(symbol, provider=provider_name)
+                except Exception as e:
+                    self.status_label.setText(f"שגיאה ({provider_name}) עבור {symbol}: {e}")
+                    continue
+                if isinstance(data, pd.DataFrame):
+                    if data.empty:
+                        self.status_label.setText(f"אין נתונים זמינים עבור {symbol} ({provider_name})")
+                        continue
+                    rows = data.to_dict('records')
+                else:
+                    rows = []
+                    if isinstance(data, list):
+                        for item in data:
+                            if hasattr(item, 'to_dict'):
+                                rows.append(item.to_dict())
+                            elif isinstance(item, dict):
+                                rows.append(item)
+                    elif hasattr(data, 'to_dict'):
+                        rows.append(data.to_dict())
+                    elif isinstance(data, dict):
+                        rows.append(data)
+                if not rows:
+                    self.status_label.setText(f"לא התקבלו נתונים עבור {symbol} ({provider_name})")
+                    continue
+                # שמירה לקובץ
+                file_path = os.path.join(self.get_download_folder(), f"{symbol}_{start_date}_to_{end_date}.json")
+                with open(file_path, "w", encoding="utf-8") as f:
+                    json.dump(rows, f, ensure_ascii=False, indent=2)
+                results.append(symbol)
+                got_data = True
+                break
+            if not got_data:
+                self.status_label.setText(f"לא נמצאו נתונים עבור {symbol} בכל הספקים")
+        if results:
+            self.status_label.setText(f"הורדה הושלמה עבור: {', '.join(results)}")
+            self.refresh_files_list()
     def __init__(self):
         super().__init__()
         self.current_sidebar_btn = "ניהול דאטה מניות"
@@ -60,7 +222,14 @@ class DataManagementTab(QtWidgets.QWidget):
         self.status_label.setStyleSheet("color: #1976d2; margin-top: 16px;")
         stocks_layout.addWidget(self.status_label)
         self.files_label = QtWidgets.QLabel("קבצים קיימים:")
-        stocks_layout.addWidget(self.files_label)
+        files_row = QtWidgets.QHBoxLayout()
+        files_row.addWidget(self.files_label)
+        self.browse_btn = QtWidgets.QPushButton("Browse")
+        self.browse_btn.setFixedWidth(80)
+        self.browse_btn.clicked.connect(self.browse_download_folder)
+        files_row.addWidget(self.browse_btn)
+        files_row.addStretch()
+        stocks_layout.addLayout(files_row)
         self.files_list = QtWidgets.QListWidget()
         stocks_layout.addWidget(self.files_list)
 
@@ -102,9 +271,27 @@ class DataManagementTab(QtWidgets.QWidget):
     def show_options(self):
         self.stacked.setCurrentWidget(self.options_widget)
 
+    def get_download_folder(self):
+        import os
+        folder = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data_management', 'downloads')
+        if not os.path.exists(folder):
+            os.makedirs(folder, exist_ok=True)
+        return folder
+
     def refresh_files_list(self):
-        # Stub: implement file list refresh logic if needed
-        pass
+        import os
+        folder = self.get_download_folder()
+        files = [f for f in os.listdir(folder) if f.endswith('.json')]
+        self.files_list.clear()
+        for f in sorted(files):
+            self.files_list.addItem(f)
+
+    def browse_download_folder(self):
+        import os
+        folder = self.get_download_folder()
+        from PyQt6.QtGui import QDesktopServices
+        from PyQt6.QtCore import QUrl
+        QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
 
     def show_data_table(self):
         from data_management.stock_db import StockDB
@@ -120,10 +307,10 @@ class DataManagementTab(QtWidgets.QWidget):
             self.status_label.setText("פורמט תאריך לא תקין. יש להזין: dd-mm-yyyy")
             return
         db = StockDB()
-        rows = db.query(symbol, start_date, end_date)
+        rows = db.get_merged_rows(symbol, start_date, end_date)
         db.close()
         if not rows:
-            self.status_label.setText("שגיאה בהורדת נתונים לשנה אחורה")
+            self.status_label.setText("לא נמצאו נתונים מאוחדים לתאריכים שבחרת")
             return
         # Remove old table if exists
         if hasattr(self, 'data_table'):
@@ -131,8 +318,8 @@ class DataManagementTab(QtWidgets.QWidget):
             self.data_table.deleteLater()
         # Create table
         table = QtWidgets.QTableWidget()
-        table.setColumnCount(8)
-        table.setHorizontalHeaderLabels(["Symbol", "Date", "Open", "High", "Low", "Close", "Volume", "Adj Close"])
+        table.setColumnCount(9)
+        table.setHorizontalHeaderLabels(["Symbol", "Date", "Open", "High", "Low", "Close", "Volume", "Adj Close", "Sources"])
         table.setRowCount(len(rows))
         for i, row in enumerate(rows):
             table.setItem(i, 0, QtWidgets.QTableWidgetItem(str(row.get("symbol", ""))))
@@ -143,15 +330,14 @@ class DataManagementTab(QtWidgets.QWidget):
             table.setItem(i, 5, QtWidgets.QTableWidgetItem(str(row.get("close", ""))))
             table.setItem(i, 6, QtWidgets.QTableWidgetItem(str(row.get("volume", ""))))
             table.setItem(i, 7, QtWidgets.QTableWidgetItem(str(row.get("adj_close", ""))))
+            # sources: רשימת ספקים
+            sources = row.get("sources", [])
+            table.setItem(i, 8, QtWidgets.QTableWidgetItem(", ".join([str(s) for s in sources])))
         table.resizeColumnsToContents()
         self.stocks_widget.layout().addWidget(table)
         self.data_table = table
-        self.status_label.setText(f"הוצגו {len(rows)} רשומות עבור {symbol}")
+        self.status_label.setText(f"הוצגו {len(rows)} רשומות מאוחדות עבור {symbol}")
         self.refresh_files_list()
-        # אם לא התקבלו נתונים
-        if not rows:
-            self.status_label.setText("שגיאה בהורדת נתונים לשנה אחורה")
-            return
     def download_year(self):
         from data_management.data_router import DataRouter
         from data_management.stock_db import StockDB
@@ -166,35 +352,46 @@ class DataManagementTab(QtWidgets.QWidget):
         end_date = datetime.date.today()
         start_date = end_date - datetime.timedelta(days=365)
         results = []
+        import pandas as pd
+        provider_order = ["yahoo", "finnhub", "alphavantage", "polygon", "twelvedata", "fmp"]
         for symbol in symbol_list:
-            try:
-                if hasattr(router, 'get_historical_data'):
-                    data = router.get_historical_data(symbol, start_date.isoformat(), end_date.isoformat())
+            got_data = False
+            for provider_name in provider_order:
+                try:
+                    if hasattr(router, 'get_historical_data'):
+                        data = router.get_historical_data(symbol, start_date.isoformat(), end_date.isoformat(), provider=provider_name)
+                    else:
+                        data = router.get_quote(symbol, provider=provider_name)
+                except Exception as e:
+                    self.status_label.setText(f"שגיאה ({provider_name}) עבור {symbol}: {e}")
+                    continue
+                # טיפול במקרה של DataFrame ריק
+                if isinstance(data, pd.DataFrame):
+                    if data.empty:
+                        self.status_label.setText(f"אין נתונים זמינים עבור {symbol} ({provider_name})")
+                        continue
+                    rows = data.to_dict('records')
                 else:
-                    data = router.get_quote(symbol)
-            except Exception:
-                data = None
-            # נניח ש-data הוא רשימה של dict או אובייקט אחד
-            rows = []
-            if isinstance(data, list):
-                for item in data:
-                    if hasattr(item, 'to_dict'):
-                        rows.append(item.to_dict())
-                    elif isinstance(item, dict):
-                        rows.append(item)
-            elif hasattr(data, 'to_dict'):
-                rows.append(data.to_dict())
-            elif isinstance(data, dict):
-                rows.append(data)
-            if rows:
-                # Try to get provider name from router or data
-                provider_name = None
-                if hasattr(router, 'last_provider'):
-                    provider_name = getattr(router, 'last_provider', None)
-                if not provider_name and rows and 'provider' in rows[0]:
-                    provider_name = rows[0].get('provider')
+                    rows = []
+                    if isinstance(data, list):
+                        for item in data:
+                            if hasattr(item, 'to_dict'):
+                                rows.append(item.to_dict())
+                            elif isinstance(item, dict):
+                                rows.append(item)
+                    elif hasattr(data, 'to_dict'):
+                        rows.append(data.to_dict())
+                    elif isinstance(data, dict):
+                        rows.append(data)
+                if not rows:
+                    self.status_label.setText(f"לא התקבלו נתונים עבור {symbol} ({provider_name})")
+                    continue
                 db.insert_rows(rows, provider=provider_name)
                 results.append(symbol)
+                got_data = True
+                break
+            if not got_data:
+                self.status_label.setText(f"לא נמצאו נתונים עבור {symbol} בכל הספקים")
         db.close()
         if results:
             self.status_label.setText(f"הורדה הושלמה ושמורה ל-SQLite עבור: {', '.join(results)}")
@@ -216,7 +413,7 @@ class DataManagementTab(QtWidgets.QWidget):
             data = router.get_quote(symbol)
             if data:
                 data_dict = data.to_dict() if hasattr(data, 'to_dict') else data
-                file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data_management', f"{symbol}_{date_str}.json")
+                file_path = os.path.join(self.get_download_folder(), f"{symbol}_{date_str}.json")
                 with open(file_path, "w", encoding="utf-8") as f:
                     json.dump(data_dict, f, ensure_ascii=False, indent=2)
                 results.append(symbol)
@@ -224,35 +421,79 @@ class DataManagementTab(QtWidgets.QWidget):
             self.status_label.setText(f"הורדה הושלמה עבור: {', '.join(results)}")
             self.refresh_files_list()
         else:
-            self.status_label.setText("שגיאה בהורדת נתונים ליום אחרון")
-
-    def download_range(self):
-        import re, json, os
-        start_date = self.date_from.text().strip()
-        end_date = self.date_to.text().strip()
-        pattern = r"^(\d{2}-\d{2}-\d{4})$"
-        if not re.match(pattern, start_date) or not re.match(pattern, end_date):
-            self.status_label.setText("פורמט תאריך לא תקין. יש להזין: dd-mm-yyyy")
-            return
-        symbols = self.symbols_input.text().strip()
-        if not symbols:
-            symbols = "AAPL"
-        symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
-        self.status_label.setText(f"מוריד נתונים מ-{start_date} עד {end_date} עבור {', '.join(symbol_list)}...")
-        from data_management.data_router import DataRouter
-        router = DataRouter()
-        results = []
-        for symbol in symbol_list:
-            # כאן אפשר להרחיב ל-API שמקבל טווח תאריכים
-            data = router.get_quote(symbol)
-            if data:
-                data_dict = data.to_dict() if hasattr(data, 'to_dict') else data
-                file_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data_management', f"{symbol}_{start_date}_to_{end_date}.json")
-                with open(file_path, "w", encoding="utf-8") as f:
-                    json.dump(data_dict, f, ensure_ascii=False, indent=2)
-                results.append(symbol)
-        if results:
-            self.status_label.setText(f"הורדה הושלמה עבור: {', '.join(results)}")
-            self.refresh_files_list()
-        else:
-            self.status_label.setText("שגיאה בהורדת נתונים לטווח")
+            from data_management.stock_db import StockDB
+            import pandas as pd
+            import logging
+            logger = logging.getLogger("download_year")
+            self.status_label.setText("מוריד נתונים לשנה אחורה... (פעולה עשויה להימשך מספר שניות)")
+            router = DataRouter()
+            db = StockDB()
+            symbols = self.symbols_input.text().strip()
+            if not symbols:
+                symbols = "AAPL"
+            symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+            logger.info(f"[download_year] סימבולים: {symbol_list}")
+            end_date = datetime.date.today()
+            start_date = end_date - datetime.timedelta(days=365)
+            results = []
+            provider_order = ["yahoo", "finnhub", "alphavantage", "polygon", "twelvedata", "fmp"]
+            logger.info(f"[download_year] ספקים: {provider_order}")
+            for symbol in symbol_list:
+                got_data = False
+                for provider_name in provider_order:
+                    logger.info(f"[download_year] מנסה {symbol} דרך {provider_name}")
+                    self.status_label.setText(f"מנסה להוריד {symbol} דרך {provider_name}...")
+                    QtWidgets.QApplication.processEvents()
+                    try:
+                        if hasattr(router, 'get_historical_data'):
+                            data = router.get_historical_data(symbol, start_date.isoformat(), end_date.isoformat(), provider=provider_name)
+                        else:
+                            data = router.get_quote(symbol, provider=provider_name)
+                    except Exception as e:
+                        logger.error(f"[download_year] שגיאה ({provider_name}) עבור {symbol}: {e}")
+                        self.status_label.setText(f"שגיאה ({provider_name}) עבור {symbol}: {e}")
+                        QtWidgets.QApplication.processEvents()
+                        continue
+                    # טיפול במקרה של DataFrame ריק
+                    if isinstance(data, pd.DataFrame):
+                        logger.info(f"[download_year] התקבל DataFrame עבור {symbol} ({provider_name}), שורות: {len(data)}")
+                        if data.empty:
+                            logger.warning(f"[download_year] אין נתונים זמינים עבור {symbol} ({provider_name})")
+                            self.status_label.setText(f"אין נתונים זמינים עבור {symbol} ({provider_name})")
+                            QtWidgets.QApplication.processEvents()
+                            continue
+                        rows = data.to_dict('records')
+                    else:
+                        rows = []
+                        if isinstance(data, list):
+                            for item in data:
+                                if hasattr(item, 'to_dict'):
+                                    rows.append(item.to_dict())
+                                elif isinstance(item, dict):
+                                    rows.append(item)
+                        elif hasattr(data, 'to_dict'):
+                            rows.append(data.to_dict())
+                        elif isinstance(data, dict):
+                            rows.append(data)
+                    logger.info(f"[download_year] rows: {len(rows)}")
+                    if not rows:
+                        logger.warning(f"[download_year] לא התקבלו נתונים עבור {symbol} ({provider_name})")
+                        self.status_label.setText(f"לא התקבלו נתונים עבור {symbol} ({provider_name})")
+                        QtWidgets.QApplication.processEvents()
+                        continue
+                    db.insert_rows(rows, provider=provider_name)
+                    results.append(symbol)
+                    got_data = True
+                    logger.info(f"[download_year] הצלחה עבור {symbol} דרך {provider_name}")
+                    break
+                if not got_data:
+                    logger.warning(f"[download_year] לא נמצאו נתונים עבור {symbol} בכל הספקים")
+                    self.status_label.setText(f"לא נמצאו נתונים עבור {symbol} בכל הספקים")
+                    QtWidgets.QApplication.processEvents()
+            db.close()
+            logger.info(f"[download_year] סיום, results: {results}")
+            if results:
+                self.status_label.setText(f"הורדה הושלמה ושמורה ל-SQLite עבור: {', '.join(results)}")
+            else:
+                self.status_label.setText("שגיאה בהורדת נתונים לשנה אחורה")
+        # ...existing code...

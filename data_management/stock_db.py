@@ -64,7 +64,23 @@ class StockDB:
         self.conn = sqlite3.connect(self.db_path)
         self.conn.execute("PRAGMA journal_mode=WAL;")
         self.conn.execute("PRAGMA synchronous=NORMAL;")
-        self.conn.execute(CREATE_TABLE_SQL)
+        # פיצול לשתי קריאות execute
+        self.conn.execute("""
+        CREATE TABLE IF NOT EXISTS stocks (
+            symbol TEXT NOT NULL,
+            date TEXT NOT NULL,
+            provider TEXT,
+            open REAL,
+            high REAL,
+            low REAL,
+            close REAL,
+            volume INTEGER,
+            adj_close REAL,
+            raw_data TEXT,
+            PRIMARY KEY (symbol, date, provider)
+        );
+        """)
+        self.conn.execute("CREATE INDEX IF NOT EXISTS idx_symbol_date ON stocks(symbol, date);")
         self.conn.commit()
 
     def insert_rows(self, rows: List[Dict[str, Any]], provider: Optional[str] = None):

@@ -11,6 +11,49 @@ import pandas as pd
 from .base_provider import BaseProvider, QuoteData
 
 class YahooProvider(BaseProvider):
+    def get_historical_data(self, symbol: str, start_date: str, end_date: str, period: str = None) -> Optional[pd.DataFrame]:
+        """
+        שליפת נתונים היסטוריים לפי טווח תאריכים או period, כולל כל הפרמטרים
+        """
+        import logging
+        import threading
+        logger = logging.getLogger("YahooProvider.get_historical_data")
+        try:
+            self._rate_limit_check()
+            logger.info(f"[YahooProvider] מתחיל קריאת yfinance.Ticker({symbol})")
+            ticker = yf.Ticker(symbol)
+            result = {}
+            def fetch_history():
+                try:
+                    kwargs = dict(interval="1d", auto_adjust=True, actions=True)
+                    if period:
+                        logger.info(f"[YahooProvider] קריאה עם period={period}, interval=1d, auto_adjust=True, actions=True")
+                        result['history'] = ticker.history(period=period, **kwargs)
+                    else:
+                        logger.info(f"[YahooProvider] קריאה עם start={start_date}, end={end_date}, interval=1d, auto_adjust=True, actions=True")
+                        result['history'] = ticker.history(start=start_date, end=end_date, **kwargs)
+                except Exception as e:
+                    result['error'] = e
+            t = threading.Thread(target=fetch_history)
+            t.start()
+            t.join(timeout=15)
+            if t.is_alive():
+                logger.error(f"[YahooProvider] קריאת ticker.history נתקעה (timeout)")
+                return None
+            if 'error' in result:
+                logger.error(f"[YahooProvider] שגיאה בקריאת ticker.history: {result['error']}")
+                return None
+            history = result.get('history')
+            if history is None or history.empty:
+                logger.warning(f"No historical data for {symbol} (period={period}, start={start_date}, end={end_date})")
+                return None
+            logger.info(f"Retrieved {len(history)} historical records for {symbol} (period={period}, start={start_date}, end={end_date})")
+            logger.info(f"Columns: {list(history.columns)}")
+            logger.info(f"Sample row: {history.iloc[0].to_dict() if len(history) > 0 else 'EMPTY'}")
+            return history
+        except Exception as e:
+            logger.error(f"Failed to get historical data for {symbol}: {e}")
+            return None
     """ספק נתונים Yahoo Finance - חינמי ללא הגבלות API"""
     
     def __init__(self, config=None):
