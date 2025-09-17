@@ -112,7 +112,7 @@ class MainWindow(QMainWindow):
         # נתונים מהארטיפקט המקורי
         self.tabs = [
             'Dashboard', 'Scanning', 'Watchlist', 
-            'Options Trading', 'Analytics', 'Settings'
+            'Options Trading', 'Analytics', 'Data Management', 'Settings'
         ]
         
         self.sidebar_content = {
@@ -130,6 +130,7 @@ class MainWindow(QMainWindow):
                 'Settings'
             ],
             'Analytics': ['Performance', 'Reports', 'Trade History', 'Risk Analysis', 'Charts', 'Export'],
+            'Data Management': ['ניהול דאטה מניות', 'ניהול דאטה אופציות'],
             'Settings': ['Account', 'Data Sources', 'API Keys', 'Notifications', 'Import/Export', 'About']
         }
         
@@ -246,9 +247,12 @@ class MainWindow(QMainWindow):
         from ui.components.generic_tab import GenericTab
         self.options_trading_tab_instance = OptionsTradingTab()
         self.content_widgets = {}
+        from ui.tabs.data_management_tab import DataManagementTab
         for tab_name in self.tabs:
             if tab_name == 'Options Trading':
                 self.content_widgets[tab_name] = self.options_trading_tab_instance
+            elif tab_name == 'Data Management':
+                self.content_widgets[tab_name] = DataManagementTab()
             else:
                 sidebar_buttons = self.sidebar_content.get(tab_name, [])
                 self.content_widgets[tab_name] = GenericTab(tab_name, sidebar_buttons)
