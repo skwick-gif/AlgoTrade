@@ -1,0 +1,92 @@
+# PyQt6 Trading System - Requirements
+# תלויות עיקריות למערכת המסחר
+
+# ===== UI Framework =====
+PyQt6>=6.6.0
+PyQt6-Qt6>=6.6.0
+
+# ===== Trading & Market Data =====
+ib-insync>=0.9.86          # Interactive Brokers API
+yfinance>=0.2.18           # Yahoo Finance (free data)
+alpha-vantage>=2.3.1       # Alpha Vantage API
+finnhub-python>=2.4.19     # Finnhub API
+polygon-api-client>=1.12.0 # Polygon.io API
+twelvedata>=1.2.12         # TwelveData API
+
+# ===== Data Processing =====
+pandas>=2.1.0              # Data manipulation
+numpy>=1.24.0              # Numerical computing
+requests>=2.31.0           # HTTP requests
+urllib3>=2.0.0             # HTTP client
+
+# ===== Database =====
+
+# ===== Configuration & Logging =====
+python-dotenv>=1.0.0       # Environment variables
+cryptography>=41.0.0       # API keys encryption
+jsonschema>=4.19.0         # JSON validation
+
+# ===== Financial Calculations =====
+QuantLib>=1.31             # Quantitative finance
+scipy>=1.11.0              # Scientific computing
+ta-lib>=0.4.26             # Technical analysis (optional)
+
+# ===== Utils =====
+python-dateutil>=2.8.2    # Date utilities
+pytz>=2023.3               # Timezone handling
+schedule>=1.2.0            # Job scheduling
+
+# ===== Development & Testing =====
+pytest>=7.4.0             # Testing framework
+pytest-qt>=4.2.0          # PyQt testing
+black>=23.7.0              # Code formatting
+flake8>=6.0.0              # Linting
+mypy>=1.5.0                # Type checking
+
+# ===== Optional: Advanced Features =====
+# Uncomment if needed:
+# matplotlib>=3.7.0         # Plotting (אם רוצים charts מתקדמים)
+# plotly>=5.15.0            # Interactive charts
+# dash>=2.12.0              # Web dashboard (אם רוצים web interface)
+# fastapi>=0.100.0          # REST API (אם רוצים API endpoints)
+# uvicorn>=0.23.0           # ASGI server
+# websockets>=11.0.0        # WebSocket support
+# redis>=4.6.0              # Caching (אם רוצים cache מתקדם)
+# celery>=5.3.0             # Task queue (אם רוצים background tasks)
+
+# ===== System Requirements =====
+# Python >= 3.9
+# Operating System: Windows 10/11, macOS 10.15+, Ubuntu 20.04+
+# RAM: 8GB minimum, 16GB recommended
+# Storage: 2GB free space minimum
+
+# ===== Installation Notes =====
+# 1. Install Python 3.9+ from python.org
+# 2. Create virtual environment: python -m venv venv
+# 3. Activate virtual environment:
+#    - Windows: venv\Scripts\activate
+#    - macOS/Linux: source venv/bin/activate
+# 4. Install requirements: pip install -r requirements.txt
+# 5. For TA-Lib on Windows: download wheel from https://www.lfd.uci.edu/~gohlke/pythonlibs/
+# 6. For IBKR: Download TWS or IB Gateway from Interactive Brokers
+
+# ===== API Keys Required =====
+# Create .env file with:
+# ALPHA_VANTAGE_API_KEY=your_key_here
+# FINNHUB_API_KEY=your_key_here
+# POLYGON_API_KEY=your_key_here
+# TWELVEDATA_API_KEY=your_key_here
+# FMP_API_KEY=your_key_here
+# FRED_API_KEY=your_key_here
+
+# ===== Version Compatibility =====
+# Tested with Python 3.9, 3.10, 3.11, 3.12
+# PyQt6 requires Python 3.8+
+# ib-insync requires Python 3.7+
+# Some financial libraries may require specific versions
+
+# ===== Performance Notes =====
+# - pandas and numpy are CPU intensive
+# - Real-time data processing requires sufficient RAM
+# - Multiple API calls may hit rate limits
+# - Consider upgrading API plans for production use

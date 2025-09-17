@@ -1,0 +1,10 @@
+{
+  "VIX": {
+    "primary": "yahoo",
+    "fallback": [
+      "fred",
+      "alphavantage"
+    ],
+    "update_interval": 60
+  }
+}

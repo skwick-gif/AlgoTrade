@@ -1,0 +1,345 @@
+/*
+styles/main.qss - QSS Stylesheet עיקרי
+מתבסס על הארטיפקט React המקורי עם Tailwind CSS
+*/
+
+/* ===== GLOBAL STYLES ===== */
+QMainWindow {
+    background-color: #f9fafb;  /* bg-gray-50 */
+    color: #1f2937;             /* text-gray-800 */
+    font-family: "Segoe UI", "San Francisco", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ===== HEADER STYLES ===== */
+QFrame#headerFrame {
+    background-color: white;
+    border: none;
+    border-bottom: 1px solid #e5e7eb;  /* border-gray-200 */
+}
+
+QLabel#appTitle {
+    color: #1f2937;        /* text-gray-800 */
+    font-size: 18px;       /* text-xl */
+    font-weight: 600;      /* font-semibold */
+}
+
+QLabel#vixLabel, QLabel#marketLabel, QLabel#ibkrLabel {
+    color: #6b7280;        /* text-gray-500 */
+    font-size: 12px;       /* text-xs */
+}
+
+QLabel#vixValue {
+    font-size: 12px;       /* text-xs */
+    font-weight: bold;     /* font-bold */
+}
+
+QLabel#vixStatus {
+    color: #9ca3af;        /* text-gray-400 */
+    font-size: 11px;       /* text-xs */
+}
+
+QLabel#regimeLabel {
+    font-size: 14px;       /* text-sm */
+    font-weight: 500;      /* font-medium */
+}
+
+QLabel#accountLabel {
+    font-size: 12px;       /* text-xs */
+}
+
+/* ===== TAB STYLES ===== */
+QFrame#tabFrame {
+    background-color: white;
+    border: none;
+    border-bottom: 1px solid #e5e7eb;  /* border-gray-200 */
+}
+
+QPushButton#tabButton {
+    background-color: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #6b7280;                    /* text-gray-500 */
+    font-size: 14px;                   /* text-sm */
+    font-weight: 500;                  /* font-medium */
+    padding: 12px 16px;                /* px-4 py-3 */
+    margin: 0px;
+    text-align: center;
+}
+
+QPushButton#tabButton:hover {
+    color: #374151;                    /* text-gray-700 */
+    border-bottom: 2px solid #d1d5db;  /* border-gray-300 */
+}
+
+QPushButton#tabButton:checked {
+    color: #2563eb;                    /* text-blue-600 */
+    border-bottom: 2px solid #2563eb;  /* border-blue-600 */
+}
+
+QPushButton#tabButton:pressed {
+    background-color: #f3f4f6;         /* bg-gray-100 */
+}
+
+/* ===== SIDEBAR STYLES ===== */
+QWidget#sidebar {
+    background-color: white;
+    border: none;
+    border-right: 1px solid #e5e7eb;   /* border-gray-200 */
+    min-width: 192px;
+    max-width: 192px;
+}
+
+QPushButton#sidebarButton {
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;                /* rounded-md */
+    color: #374151;                    /* text-gray-700 */
+    font-size: 14px;                   /* text-sm */
+    padding: 8px 12px;                 /* px-3 py-2 */
+    text-align: left;
+    margin: 0px;
+}
+
+QPushButton#sidebarButton:hover {
+    background-color: #f3f4f6;         /* bg-gray-100 */
+}
+
+QPushButton#sidebarButton:pressed {
+    background-color: #e5e7eb;         /* bg-gray-200 */
+}
+
+QPushButton#sidebarButton:checked {
+    background-color: #eff6ff;         /* bg-blue-50 */
+    color: #2563eb;                    /* text-blue-600 */
+}
+
+/* ===== CONTENT AREA STYLES ===== */
+QWidget#contentArea {
+    background-color: #f9fafb;         /* bg-gray-50 */
+}
+
+QLabel#contentTitle {
+    color: #1f2937;                    /* text-gray-800 */
+    font-size: 18px;                   /* text-lg */
+    font-weight: 600;                  /* font-semibold */
+    margin-bottom: 16px;               /* mb-4 */
+}
+
+QLabel#contentPlaceholder {
+    color: #6b7280;                    /* text-gray-500 */
+    font-size: 14px;                   /* text-sm */
+}
+
+/* ===== CARD/PANEL STYLES ===== */
+QFrame.card {
+    background-color: white;
+    border: 1px solid #e5e7eb;         /* border-gray-200 */
+    border-radius: 8px;                /* rounded-lg */
+    padding: 24px;                     /* p-6 */
+}
+
+QFrame.card-shadow {
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    /* QSS doesn't support box-shadow, using border as substitute */
+}
+
+/* ===== BUTTON STYLES ===== */
+QPushButton.primary {
+    background-color: #2563eb;         /* bg-blue-600 */
+    border: none;
+    border-radius: 6px;                /* rounded-md */
+    color: white;
+    font-size: 14px;                   /* text-sm */
+    font-weight: 500;                  /* font-medium */
+    padding: 8px 16px;                 /* px-4 py-2 */
+}
+
+QPushButton.primary:hover {
+    background-color: #1d4ed8;         /* bg-blue-700 */
+}
+
+QPushButton.primary:pressed {
+    background-color: #1e40af;         /* bg-blue-800 */
+}
+
+QPushButton.secondary {
+    background-color: #f3f4f6;         /* bg-gray-100 */
+    border: 1px solid #d1d5db;         /* border-gray-300 */
+    border-radius: 6px;
+    color: #374151;                    /* text-gray-700 */
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 16px;
+}
+
+QPushButton.secondary:hover {
+    background-color: #e5e7eb;         /* bg-gray-200 */
+}
+
+QPushButton.secondary:pressed {
+    background-color: #d1d5db;         /* bg-gray-300 */
+}
+
+/* ===== INPUT STYLES ===== */
+QLineEdit {
+    background-color: white;
+    border: 1px solid #d1d5db;         /* border-gray-300 */
+    border-radius: 6px;                /* rounded-md */
+    color: #1f2937;                    /* text-gray-800 */
+    font-size: 14px;                   /* text-sm */
+    padding: 8px 12px;                 /* px-3 py-2 */
+}
+
+QLineEdit:focus {
+    border: 2px solid #2563eb;         /* border-blue-600 */
+    outline: none;
+}
+
+QLineEdit:disabled {
+    background-color: #f3f4f6;         /* bg-gray-100 */
+    color: #9ca3af;                    /* text-gray-400 */
+}
+
+/* ===== TABLE STYLES ===== */
+QTableWidget {
+    background-color: white;
+    border: 1px solid #e5e7eb;         /* border-gray-200 */
+    border-radius: 8px;                /* rounded-lg */
+    gridline-color: #f3f4f6;           /* bg-gray-100 */
+    font-size: 14px;                   /* text-sm */
+}
+
+QTableWidget::item {
+    padding: 8px 12px;                 /* px-3 py-2 */
+    border-bottom: 1px solid #f3f4f6;
+}
+
+QTableWidget::item:selected {
+    background-color: #eff6ff;         /* bg-blue-50 */
+    color: #2563eb;                    /* text-blue-600 */
+}
+
+QHeaderView::section {
+    background-color: #f9fafb;         /* bg-gray-50 */
+    border: none;
+    border-bottom: 1px solid #e5e7eb;
+    color: #374151;                    /* text-gray-700 */
+    font-size: 12px;                   /* text-xs */
+    font-weight: 600;                  /* font-semibold */
+    padding: 12px 8px;                 /* px-2 py-3 */
+    text-transform: uppercase;
+}
+
+/* ===== SCROLLBAR STYLES ===== */
+QScrollBar:vertical {
+    background-color: #f3f4f6;         /* bg-gray-100 */
+    border: none;
+    border-radius: 6px;
+    width: 12px;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #d1d5db;         /* bg-gray-300 */
+    border-radius: 6px;
+    min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #9ca3af;         /* bg-gray-400 */
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+QScrollBar:horizontal {
+    background-color: #f3f4f6;
+    border: none;
+    border-radius: 6px;
+    height: 12px;
+}
+
+QScrollBar::handle:horizontal {
+    background-color: #d1d5db;
+    border-radius: 6px;
+    min-width: 20px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background-color: #9ca3af;
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+
+/* ===== SPLITTER STYLES ===== */
+QSplitter::handle {
+    background-color: #e5e7eb;         /* border-gray-200 */
+    width: 1px;
+    height: 1px;
+}
+
+QSplitter::handle:hover {
+    background-color: #d1d5db;         /* border-gray-300 */
+}
+
+/* ===== TOOLTIP STYLES ===== */
+QToolTip {
+    background-color: #1f2937;         /* bg-gray-800 */
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-size: 12px;                   /* text-xs */
+    padding: 4px 8px;                  /* px-2 py-1 */
+}
+
+/* ===== STATUS INDICATORS ===== */
+.status-green {
+    color: #16a34a;                    /* text-green-600 */
+}
+
+.status-red {
+    color: #dc2626;                    /* text-red-600 */
+}
+
+.status-yellow {
+    color: #ca8a04;                    /* text-yellow-600 */
+}
+
+.status-blue {
+    color: #2563eb;                    /* text-blue-600 */
+}
+
+.status-orange {
+    color: #ea580c;                    /* text-orange-600 */
+}
+
+/* ===== UTILITY CLASSES ===== */
+.text-center {
+    text-align: center;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.font-bold {
+    font-weight: bold;
+}
+
+.font-semibold {
+    font-weight: 600;
+}
+
+.font-medium {
+    font-weight: 500;
+}

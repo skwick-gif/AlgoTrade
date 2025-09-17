@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtualenv
+venv/
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite3
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Others
+*.bak
+*.tmp
+
+# Docker
+*.pid
+docker-compose.override.yml
+
+# Node
+node_modules/
+
+# PDF/Export
+*.pdf
+*.xlsx
+*.csv
+
+# Custom
+pyqt6-trading-system/Folders_Files_Structure.pdf
