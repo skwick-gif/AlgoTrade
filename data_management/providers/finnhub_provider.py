@@ -2,6 +2,44 @@ from .base_provider import BaseProvider
 
 class FinnhubProvider(BaseProvider):
 
+	def get_market_news(self):
+		"""שליפת חדשות שוק מ-Finnhub API"""
+		import requests
+		self.logger.info("Finnhub get_market_news called")
+		cache_key = "market_news_finnhub"
+		cached_data = self._get_from_cache(cache_key)
+		if cached_data:
+			return cached_data
+
+		self._rate_limit_check()
+		if not self.api_key:
+			self.logger.error("Finnhub API key missing")
+			return []
+
+		url = "https://finnhub.io/api/v1/news"
+		params = {
+			"category": "general",
+			"token": self.api_key
+		}
+		try:
+			response = requests.get(url, params=params, timeout=10)
+			response.raise_for_status()
+			data = response.json()
+			news_items = []
+			for item in data:
+				news_items.append({
+					"headline": item.get("headline", ""),
+					"date": item.get("datetime", ""),
+					"summary": item.get("summary", "")
+				})
+			self._set_cache(cache_key, news_items)
+			self._update_status(success=True)
+			return news_items
+		except Exception as e:
+			self._update_status(success=False, error_msg=str(e))
+			self.logger.error(f"Finnhub market news fetch failed: {e}")
+			return []
+
 	def __init__(self, config=None):
 		api_key = None
 		if config is not None:

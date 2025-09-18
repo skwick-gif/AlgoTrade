@@ -38,6 +38,43 @@ class DataRequest:
 
 
 class DataRouter:
+    def get_market_news(self):
+        """שליפת חדשות שוק מספק Finnhub (אם קיים)"""
+        try:
+            provider = self._providers.get("finnhub")
+            if provider and hasattr(provider, "get_market_news"):
+                return provider.get_market_news()
+            else:
+                self.logger.error("No Finnhub provider available for market news")
+                return []
+        except Exception as e:
+            self.logger.error(f"Error in get_market_news: {e}")
+            return []
+
+    def get_earnings(self):
+        """שליפת דוחות רבעוניים מספק FMP (אם קיים)"""
+        try:
+            provider = self._providers.get("fmp")
+            if provider and hasattr(provider, "get_earnings"):
+                return provider.get_earnings()
+            else:
+                self.logger.error("No FMP provider available for earnings")
+                return []
+        except Exception as e:
+            self.logger.error(f"Error in get_earnings: {e}")
+            return []
+    def get_economic_events(self, days_ahead=30):
+        """שליפת אירועים כלכליים קרובים דרך ספק מרכזי (FRED)"""
+        try:
+            provider = self._providers.get("fred")
+            if provider:
+                return provider.get_economic_events(days_ahead=days_ahead)
+            else:
+                self.logger.error("No FRED provider available for economic events")
+                return []
+        except Exception as e:
+            self.logger.error(f"Error in get_economic_events: {e}")
+            return []
     """נתב נתונים חכם עם fallback ו-load balancing"""
     
     def __init__(self):

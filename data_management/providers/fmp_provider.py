@@ -2,6 +2,44 @@ from .base_provider import BaseProvider
 
 class FMPProvider(BaseProvider):
 
+	def get_earnings(self):
+		"""שליפת דוחות רבעוניים מ-FMP API"""
+		import requests
+		self.logger.info("FMP get_earnings called")
+		cache_key = "earnings_fmp"
+		cached_data = self._get_from_cache(cache_key)
+		if cached_data:
+			return cached_data
+
+		self._rate_limit_check()
+		if not self.api_key:
+			self.logger.error("FMP API key missing")
+			return []
+
+		url = "https://financialmodelingprep.com/api/v3/earning_calendar"
+		params = {
+			"apikey": self.api_key,
+			"limit": 10
+		}
+		try:
+			response = requests.get(url, params=params, timeout=10)
+			response.raise_for_status()
+			data = response.json()
+			earnings_items = []
+			for item in data:
+				earnings_items.append({
+					"company": item.get("symbol", ""),
+					"date": item.get("date", ""),
+					"result": item.get("epsActual", "")
+				})
+			self._set_cache(cache_key, earnings_items)
+			self._update_status(success=True)
+			return earnings_items
+		except Exception as e:
+			self._update_status(success=False, error_msg=str(e))
+			self.logger.error(f"FMP earnings fetch failed: {e}")
+			return []
+
 	def __init__(self, config=None):
 		api_key = None
 		if config is not None:

@@ -1,131 +1,34 @@
 from PyQt6 import QtWidgets, QtCore
 
 class DataManagementTab(QtWidgets.QWidget):
-    def download_year(self):
-        import threading, time
-        def run_download():
-            from data_management.data_router import DataRouter
-            from data_management.stock_db import StockDB
-            import pandas as pd
-            import logging
-            logger = logging.getLogger("download_year")
-            self.status_label.setText("מוריד נתונים לשנה אחורה... (פעולה עשויה להימשך מספר שניות)")
-            QtWidgets.QApplication.processEvents()
-            router = DataRouter()
-            db = StockDB()
-            symbols = self.symbols_input.text().strip()
-            if not symbols:
-                symbols = "AAPL"
-            symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
-            logger.info(f"[download_year] סימבולים: {symbol_list}")
-            end_date = pd.Timestamp.today().date()
-            start_date = end_date - pd.Timedelta(days=365)
-            results = []
-            provider_order = ["yahoo", "finnhub", "alphavantage", "polygon", "twelvedata", "fmp"]
-            logger.info(f"[download_year] ספקים: {provider_order}")
-            for symbol in symbol_list:
-                got_data = False
-                for provider_name in provider_order:
-                    max_attempts = 3
-                    attempt = 0
-                    while attempt < max_attempts:
-                        attempt += 1
-                        logger.info(f"[download_year] מנסה {symbol} דרך {provider_name} (נסיון {attempt})")
-                        self.status_label.setText(f"מנסה להוריד {symbol} דרך {provider_name} (נסיון {attempt})...")
-                        QtWidgets.QApplication.processEvents()
-                        try:
-                            # עבור Yahoo נשתמש ב-period='1y' במקום start/end
-                            if provider_name == "yahoo":
-                                if hasattr(router, 'get_historical_data'):
-                                    data = router._providers["yahoo"].get_historical_data(symbol, None, None, period="1y")
-                                else:
-                                    data = router.get_quote(symbol, provider=provider_name)
-                            elif hasattr(router, 'get_historical_data'):
-                                data = router.get_historical_data(symbol, str(start_date), str(end_date), provider=provider_name)
-                            else:
-                                data = router.get_quote(symbol, provider=provider_name)
-                        except Exception as e:
-                            err_str = str(e)
-                            logger.error(f"[download_year] שגיאה ({provider_name}) עבור {symbol}: {e}")
-                            self.status_label.setText(f"שגיאה ({provider_name}) עבור {symbol}: {e}")
-                            QtWidgets.QApplication.processEvents()
-                            # טיפול בשגיאת 429
-                            if "429" in err_str or "Too Many Requests" in err_str:
-                                self.status_label.setText(f"ספק {provider_name} חסום זמנית (429). ממתין 10 שניות...")
-                                QtWidgets.QApplication.processEvents()
-                                time.sleep(10)
-                                continue
-                            else:
-                                break
-                        if isinstance(data, pd.DataFrame):
-                            logger.info(f"[download_year] התקבל DataFrame עבור {symbol} ({provider_name}), שורות: {len(data)})")
-                            if data.empty:
-                                logger.warning(f"[download_year] אין נתונים זמינים עבור {symbol} ({provider_name})")
-                                self.status_label.setText(f"אין נתונים זמינים עבור {symbol} ({provider_name})")
-                                QtWidgets.QApplication.processEvents()
-                                break
-                            rows = data.to_dict('records')
-                        else:
-                            rows = []
-                            if isinstance(data, list):
-                                for item in data:
-                                    if hasattr(item, 'to_dict'):
-                                        rows.append(item.to_dict())
-                                    elif isinstance(item, dict):
-                                        rows.append(item)
-                            elif hasattr(data, 'to_dict'):
-                                rows.append(data.to_dict())
-                            elif isinstance(data, dict):
-                                rows.append(data)
-                        logger.info(f"[download_year] rows: {len(rows)}")
-                        if not rows:
-                            logger.warning(f"[download_year] לא התקבלו נתונים עבור {symbol} ({provider_name})")
-                            self.status_label.setText(f"לא התקבלו נתונים עבור {symbol} ({provider_name})")
-                            QtWidgets.QApplication.processEvents()
-                            break
-                        db.insert_rows(rows, provider=provider_name)
-                        results.append(symbol)
-                        got_data = True
-                        logger.info(f"[download_year] הצלחה עבור {symbol} דרך {provider_name}")
-                        break
-                    if got_data:
-                        break
-                if not got_data:
-                    logger.warning(f"[download_year] לא נמצאו נתונים עבור {symbol} בכל הספקים")
-                    self.status_label.setText(f"לא נמצאו נתונים עבור {symbol} בכל הספקים")
-                    QtWidgets.QApplication.processEvents()
-            db.close()
-            logger.info(f"[download_year] סיום, results: {results}")
-            if results:
-                self.status_label.setText(f"הורדה הושלמה ושמורה ל-SQLite עבור: {', '.join(results)}")
-            else:
-                self.status_label.setText("שגיאה בהורדת נתונים לשנה אחורה")
-            QtWidgets.QApplication.processEvents()
-        threading.Thread(target=run_download, daemon=True).start()
     def download_range(self):
-        import re, json, os
-        start_date = self.date_from.text().strip()
-        end_date = self.date_to.text().strip()
-        pattern = r"^(\d{2}-\d{2}-\d{4})$"
-        if not re.match(pattern, start_date) or not re.match(pattern, end_date):
-            self.status_label.setText("פורמט תאריך לא תקין. יש להזין: dd-mm-yyyy")
-            return
+        from data_management.data_router import DataRouter
+        from data_management.stock_db import StockDB
+        import datetime, pandas as pd
+        self.status_label.setText("מוריד נתונים לטווח תאריכים...")
+        router = DataRouter()
+        db = StockDB()
         symbols = self.symbols_input.text().strip()
         if not symbols:
             symbols = "AAPL"
         symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
-        self.status_label.setText(f"מוריד נתונים מ-{start_date} עד {end_date} עבור {', '.join(symbol_list)}...")
-        from data_management.data_router import DataRouter
-        import pandas as pd
-        router = DataRouter()
-        provider_order = ["yahoo", "finnhub", "alphavantage", "polygon", "twelvedata", "fmp"]
+        start_date = self.date_from.text().strip()
+        end_date = self.date_to.text().strip()
+        # המרה לפורמט ISO
+        try:
+            start_dt = datetime.datetime.strptime(start_date, "%d-%m-%Y")
+            end_dt = datetime.datetime.strptime(end_date, "%d-%m-%Y")
+        except Exception:
+            self.status_label.setText("פורמט תאריך לא תקין. יש להזין: dd-mm-yyyy")
+            return
         results = []
+        provider_order = ["yahoo", "finnhub", "alphavantage", "polygon", "twelvedata", "fmp"]
         for symbol in symbol_list:
             got_data = False
             for provider_name in provider_order:
                 try:
                     if hasattr(router, 'get_historical_data'):
-                        data = router.get_historical_data(symbol, start_date, end_date, provider=provider_name)
+                        data = router.get_historical_data(symbol, start_dt.date().isoformat(), end_dt.date().isoformat(), provider=provider_name)
                     else:
                         data = router.get_quote(symbol, provider=provider_name)
                 except Exception as e:
@@ -151,29 +54,25 @@ class DataManagementTab(QtWidgets.QWidget):
                 if not rows:
                     self.status_label.setText(f"לא התקבלו נתונים עבור {symbol} ({provider_name})")
                     continue
-                # שמירה לקובץ
-                file_path = os.path.join(self.get_download_folder(), f"{symbol}_{start_date}_to_{end_date}.json")
-                with open(file_path, "w", encoding="utf-8") as f:
-                    json.dump(rows, f, ensure_ascii=False, indent=2)
+                db.insert_rows(rows, provider=provider_name)
                 results.append(symbol)
                 got_data = True
                 break
             if not got_data:
                 self.status_label.setText(f"לא נמצאו נתונים עבור {symbol} בכל הספקים")
+        db.close()
         if results:
-            self.status_label.setText(f"הורדה הושלמה עבור: {', '.join(results)}")
-            self.refresh_files_list()
+            self.status_label.setText(f"הורדה הושלמה ושמורה ל-SQLite עבור: {', '.join(results)}")
+        else:
+            self.status_label.setText("שגיאה בהורדת נתונים לטווח תאריכים")
+    # הגדרה אחת בלבד ל-__init__ ולמבנה המחלקה
     def __init__(self):
         super().__init__()
         self.current_sidebar_btn = "ניהול דאטה מניות"
-        # Stacked widget for content
         self.stacked = QtWidgets.QStackedWidget()
-        # Stocks data widget
         self.stocks_widget = QtWidgets.QWidget()
         stocks_layout = QtWidgets.QVBoxLayout(self.stocks_widget)
         stocks_layout.setContentsMargins(40, 20, 40, 20)
-
-        # שורת כותרת + כפתורים
         title_row = QtWidgets.QHBoxLayout()
         stocks_title = QtWidgets.QLabel("ניהול נתונים מניות - הורדה ועדכון דאטה")
         stocks_title.setStyleSheet("font-size: 18px; font-weight: bold;")
@@ -182,21 +81,21 @@ class DataManagementTab(QtWidgets.QWidget):
         self.download_year_btn.setFixedWidth(120)
         self.download_day_btn = QtWidgets.QPushButton("הורד יום אחרון")
         self.download_day_btn.setFixedWidth(120)
+        self.resume_btn = QtWidgets.QPushButton("Resume הורדה")
+        self.resume_btn.setFixedWidth(120)
         btns_row = QtWidgets.QHBoxLayout()
         btns_row.addWidget(self.download_year_btn)
         btns_row.addWidget(self.download_day_btn)
+        btns_row.addWidget(self.resume_btn)
         btns_row.setSpacing(8)
         btns_row.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
         title_row.addLayout(btns_row)
         stocks_layout.addLayout(title_row)
-
         symbols_label = QtWidgets.QLabel("סימבולים (מופרדים בפסיק):")
         stocks_layout.addWidget(symbols_label)
         self.symbols_input = QtWidgets.QLineEdit()
         self.symbols_input.setPlaceholderText("AAPL, MSFT, TSLA")
         stocks_layout.addWidget(self.symbols_input)
-
-        # שורת טווח תאריכים מפוצלת + כפתור
         date_row = QtWidgets.QHBoxLayout()
         date_range_label = QtWidgets.QLabel("טווח תאריכים להורדה:")
         date_row.addWidget(date_range_label)
@@ -214,7 +113,6 @@ class DataManagementTab(QtWidgets.QWidget):
         date_row.setSpacing(8)
         date_row.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
         stocks_layout.addLayout(date_row)
-
         self.show_data_btn = QtWidgets.QPushButton("הצג נתונים")
         stocks_layout.addWidget(self.show_data_btn)
         self.show_data_btn.clicked.connect(self.show_data_table)
@@ -232,8 +130,6 @@ class DataManagementTab(QtWidgets.QWidget):
         stocks_layout.addLayout(files_row)
         self.files_list = QtWidgets.QListWidget()
         stocks_layout.addWidget(self.files_list)
-
-        # Options data widget (placeholder)
         self.options_widget = QtWidgets.QWidget()
         options_layout = QtWidgets.QVBoxLayout(self.options_widget)
         options_layout.setContentsMargins(40, 20, 40, 20)
@@ -244,15 +140,96 @@ class DataManagementTab(QtWidgets.QWidget):
         self.stacked.addWidget(self.stocks_widget)
         self.stacked.addWidget(self.options_widget)
         self.stacked.setCurrentWidget(self.stocks_widget)
-
-        # הצגת תוכן ראשוני
         self.show_stocks()
-        # טען קבצים קיימים
         self.refresh_files_list()
-        # חיבור כפתורים
         self.download_year_btn.clicked.connect(self.download_year)
         self.download_day_btn.clicked.connect(self.download_day)
         self.download_range_btn.clicked.connect(self.download_range)
+        self.resume_btn.clicked.connect(self.resume_download)
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.stacked)
+        # ...existing code...
+    def resume_download(self):
+        import threading, json, os
+        def run_resume():
+            cache_path = os.path.join(os.path.dirname(__file__), '..', 'data_management', 'resume_cache.json')
+            if not os.path.exists(cache_path):
+                self.status_label.setText("לא נמצא קובץ resume_cache.json")
+                return
+            with open(cache_path, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+            done = set(cache.get("done", []))
+            last_ticker = cache.get("last_ticker")
+            symbols = self.symbols_input.text().strip()
+            if not symbols:
+                symbols = "AAPL"
+            symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
+            to_do = [s for s in symbol_list if s not in done]
+            if not to_do:
+                self.status_label.setText("כל הסימבולים כבר טופלו!")
+                return
+            self.status_label.setText(f"ממשיך הורדה מ-{last_ticker or to_do[0]} ({len(to_do)} סימבולים)")
+            QtWidgets.QApplication.processEvents()
+            from data_management.data_router import DataRouter
+            from data_management.stock_db import StockDB
+            import pandas as pd
+            router = DataRouter()
+            db = StockDB()
+            provider_order = ["yahoo", "finnhub", "alphavantage", "polygon", "twelvedata", "fmp"]
+            for symbol in to_do:
+                got_data = False
+                for provider_name in provider_order:
+                    try:
+                        if provider_name == "yahoo":
+                            if hasattr(router, 'get_historical_data'):
+                                data = router._providers["yahoo"].get_historical_data(symbol, None, None, period="1y")
+                            else:
+                                data = router.get_quote(symbol, provider=provider_name)
+                        elif hasattr(router, 'get_historical_data'):
+                            data = router.get_historical_data(symbol, None, None, provider=provider_name)
+                        else:
+                            data = router.get_quote(symbol, provider=provider_name)
+                    except Exception as e:
+                        self.status_label.setText(f"שגיאה ({provider_name}) עבור {symbol}: {e}")
+                        QtWidgets.QApplication.processEvents()
+                        continue
+                    if isinstance(data, pd.DataFrame):
+                        if data.empty:
+                            self.status_label.setText(f"אין נתונים זמינים עבור {symbol} ({provider_name})")
+                            QtWidgets.QApplication.processEvents()
+                            continue
+                        rows = data.to_dict('records')
+                    else:
+                        rows = []
+                        if isinstance(data, list):
+                            for item in data:
+                                if hasattr(item, 'to_dict'):
+                                    rows.append(item.to_dict())
+                                elif isinstance(item, dict):
+                                    rows.append(item)
+                        elif hasattr(data, 'to_dict'):
+                            rows.append(data.to_dict())
+                        elif isinstance(data, dict):
+                            rows.append(data)
+                    if not rows:
+                        self.status_label.setText(f"לא התקבלו נתונים עבור {symbol} ({provider_name})")
+                        QtWidgets.QApplication.processEvents()
+                        continue
+                    db.insert_rows(rows, provider=provider_name)
+                    got_data = True
+                    break
+                # עדכון cache
+                done.add(symbol)
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump({"done": list(done), "last_ticker": symbol, "errors": cache.get("errors", {})}, f, ensure_ascii=False, indent=2)
+                self.status_label.setText(f"הורדה הושלמה עבור {symbol}")
+                QtWidgets.QApplication.processEvents()
+            db.close()
+            self.status_label.setText(f"הורדה הושלמה לכל הסימבולים!")
+            QtWidgets.QApplication.processEvents()
+        threading.Thread(target=run_resume, daemon=True).start()
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
